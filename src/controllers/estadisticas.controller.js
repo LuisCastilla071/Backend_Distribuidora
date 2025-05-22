@@ -25,33 +25,26 @@ export const totalVentasPorDia = async (req, res) => {
 };
 
 // 1.2 Total de ventas por mes
+// 1.2 Total de ventas por mes
 export const totalVentasPorMes = async (req, res) => {
   try {
-    const { startYear, endYear } = req.query;
-    let query = `
-      SELECT t.mes, ROUND(SUM(hv.total_linea), 1) AS total_ventas
-      FROM Hecho_Ventas hv
-      JOIN Dim_Tiempo t ON hv.fecha = t.fecha
-    `;
-    const queryParams = [];
-
-    if (startYear && endYear) {
-      query += ` WHERE t.año BETWEEN ? AND ?`;
-      queryParams.push(startYear, endYear);
+    const [result] = await pool2.query(
+      `SELECT t.mes, ROUND(SUM(hv.total_linea),1) AS total_ventas
+       FROM Hecho_Ventas hv
+       JOIN Dim_Tiempo t ON hv.fecha = t.fecha
+       GROUP BY t.mes
+       ORDER BY t.mes;`
+    );
+    if (result.length === 0) {
+      return res.status(404).json({
+        mensaje: 'No se encontraron estadísticas de ventas por mes.',
+      });
     }
-
-    query += ` GROUP BY t.mes ORDER BY t.mes`;
-
-    const [result] = await pool2.query(query, queryParams);
-
-    res.status(200).json({
-      mensaje: result.length === 0 ? 'No se encontraron estadísticas de ventas por mes.' : 'Estadísticas de ventas por mes obtenidas correctamente.',
-      data: result,
-    });
+    res.json(result);
   } catch (error) {
-    console.error('Error fetching monthly sales:', error);
-    res.status(500).json({
-      mensaje: 'Error al obtener las estadísticas de ventas por mes.',
+    return res.status(500).json({
+      mensaje: 'Ha ocurrido un error al obtener las estadísticas de ventas por mes.',
+      error: error.message,
     });
   }
 };
@@ -80,24 +73,26 @@ export const totalVentasPorAnio = async (req, res) => {
 };
 
 // 2.1 Total de ventas por empleado
+// 2.1 Total de ventas por empleado
 export const totalVentasPorEmpleado = async (req, res) => {
   try {
-    const [result] = await pool2.query(`
-      SELECT e.primer_nombre, e.segundo_nombre, e.primer_apellido, ROUND(SUM(hv.total_linea), 2) AS total_ventas
-      FROM Hecho_Ventas hv
-      JOIN Dim_Empleados e ON hv.id_empleado = e.id_empleado
-      GROUP BY e.id_empleado, e.primer_nombre, e.segundo_nombre, e.primer_apellido
-      ORDER BY total_ventas DESC
-    `);
-
-    res.status(200).json({
-      mensaje: result.length === 0 ? 'No se encontraron estadísticas de ventas por empleado.' : 'Estadísticas de ventas por empleado obtenidas correctamente.',
-      data: result,
-    });
+    const [result] = await pool2.query(
+      `SELECT e.primer_nombre, e.segundo_nombre, e.primer_apellido, ROUND(SUM(hv.total_linea),2) AS total_ventas
+       FROM Hecho_Ventas hv
+       JOIN Dim_Empleados e ON hv.id_empleado = e.id_empleado
+       GROUP BY e.id_empleado, e.primer_nombre, e.segundo_nombre, e.primer_apellido
+       ORDER BY total_ventas DESC;`
+    );
+    if (result.length === 0) {
+      return res.status(404).json({
+        mensaje: 'No se encontraron estadísticas de ventas por empleado.',
+      });
+    }
+    res.json(result);
   } catch (error) {
-    console.error('Error fetching sales by employee:', error);
-    res.status(500).json({
-      mensaje: 'Error al obtener las estadísticas de ventas por empleado.',
+    return res.status(500).json({
+      mensaje: 'Ha ocurrido un error al obtener las estadísticas de ventas por empleado.',
+      error: error.message,
     });
   }
 };
